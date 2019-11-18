@@ -1,3 +1,14 @@
+
+import { JaroDistance } from './algo/jaro-distance.js';
+
+import * as levenshtien from '../../node_modules/damerau-levenshtein';
+
+interface LevenshteinResponse {
+    steps: number;
+    relative: number;
+    similarity: number;
+}
+
 export class MagicSearch {
 
     public static TooCommonWords = /^(l|le|la|les|du|de|des|d|a|à)$/; // (french)
@@ -32,10 +43,15 @@ export class MagicSearch {
         }
     }
 
-    public doSearch(search: string): { scores: number[], scoreMax: number, nbMatch: number } {
+    public doSearch(search: string): { scores: number[], scoreMax: number, nbMatches: number } {
 
         if (!this.cleanDictionary) {
-            console.error('MagicSearch: dictionary not set !');
+            console.error('MagicSearch: dictionary not set!');
+            return null;
+        }
+
+        if (!search) {
+            console.error('MagicSearch: search cannot be null!');
             return null;
         }
 
@@ -61,25 +77,38 @@ export class MagicSearch {
             // remove most common plural: 's' and 'x'
             const searchTokenWithoutS = (searchToken.endsWith('s') || searchToken.endsWith('x')) ? searchToken.slice(0, searchToken.length - 1) : searchToken;
             for (let entryIndex = 0; entryIndex < dictionaryLen; entryIndex++) {
+
+                let jaroToDelete = JaroDistance.jaro(searchToken, this.cleanDictionary[entryIndex]);
+
                 // token found in entry
                 if (this.cleanDictionary[entryIndex].includes(searchTokenWithoutS)) {
-                    // token matches entire word
-                    if (this.cleanDictionary[entryIndex].includes(' ' + searchToken + ' ')) {
-                        scores[entryIndex] += 5;
-                        // token matches begin of word
-                    } else if (this.cleanDictionary[entryIndex].includes(' ' + curToken)) {
-                        scores[entryIndex] += 3;
-                        // token matches center part of word
-                    } else {
-                        scores[entryIndex] += 1;
+
+                    if (!searchToken.match(MagicSearch.TooCommonWords)) {
+                        // token matches entire word
+                        if (this.cleanDictionary[entryIndex].includes(' ' + searchToken + ' ')) {
+                            scores[entryIndex] += 6;
+                            // token matches begin of word
+                        } else if (this.cleanDictionary[entryIndex].includes(' ' + searchToken)) {
+                            scores[entryIndex] += 4;
+                            // token matches center part of word
+                        } else {
+                            scores[entryIndex] += 2;
+                        }
                     }
                     // search for similar word
                 } else {
-                    
+                    // let jaroSimilarity = JaroDistance.jaro(searchToken, this.cleanDictionary[entryIndex]);
+                    // console.log('jaro for (', searchToken, ',', this.cleanDictionary[entryIndex], ') :', jaroSimilarity);
+                    let lev: LevenshteinResponse = levenshtien('searchToken', this.cleanDictionary[entryIndex]);
+                    console.log('Levenshtein for (', searchToken, ',', this.cleanDictionary[entryIndex], ') :', lev.similarity);
+
+                    if (lev.similarity >= 0.75) {
+                        scores[entryIndex] += 2;
+                    }
                 }
             }
         }
-
+        return { scores, scoreMax: maxScore, nbMatches };
     }
 
 }
