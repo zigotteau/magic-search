@@ -1,2 +1,2 @@
-# magic-search
+# Magic Search
 Search tools for TypeScript
